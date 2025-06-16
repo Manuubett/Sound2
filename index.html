@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Message Listener</title>
+</head>
+<body>
+  <h2>Listening for Messages...</h2>
+  <audio id="notification-sound" src="alert.mp3" preload="auto"></audio>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+    import { getDatabase, ref, onChildAdded } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBTmeDxIUhua52KDAoag23q9MuNEOQXYQg",
+      authDomain: "prediction-94bf9.firebaseapp.com",
+      databaseURL: "https://prediction-94bf9-default-rtdb.firebaseio.com",
+      projectId: "prediction-94bf9",
+      storageBucket: "prediction-94bf9.appspot.com",
+      messagingSenderId: "960123689722",
+      appId: "1:960123689722:web:ca9579625439ecf2478743",
+      measurementId: "G-MTDJTB6JXG"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const messagesRef = ref(db, 'messages');
+
+    const existing = new Set();
+
+    onChildAdded(messagesRef, (snapshot) => {
+      if (!existing.has(snapshot.key)) {
+        existing.add(snapshot.key);
+        document.getElementById('notification-sound').play().catch(err => {
+          console.log('Click to enable sound:', err);
+        });
+      }
+    });
+
+    // Required to unlock audio in some browsers
+    document.body.addEventListener('click', () => {
+      document.getElementById('notification-sound').play().catch(() => {});
+    }, { once: true });
+  </script>
+</body>
+</html>
