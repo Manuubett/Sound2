@@ -1,15 +1,39 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Message Listener</title>
+  <title>Message Listener with Sound</title>
 </head>
 <body>
-  <h2>Listening for Messages...</h2>
-  <audio id="notification-sound" src="https://manuubett.github.io/Sound2/notify.mp3" preload="auto"></audio>
+  <h2>Message Listener</h2>
+  <div id="status">Initializing...</div>
+  <audio id="notification-sound" src="notify.mp3" preload="auto"></audio>
+<audio id="notification-sound" src="https://manuubett.github.io/Sound2/notify.mp3" preload="auto"></audio>
+  <div>
+    <h3>Enable Sound</h3>
+    <button id="enable-audio">Enable Notification Sound</button>
+  </div>
+
+  <div>
+    <h3>Sound Test</h3>
+    <button id="play-button">Play Sound Manually</button>
+    <div id="sound-test-status"></div>
+  </div>
+
+  <div>
+    <h3>Send Test Message</h3>
+    <input type="text" id="message-input" placeholder="Enter message">
+    <button id="send-button">Send</button>
+    <div id="send-status"></div>
+  </div>
+
+  <div>
+    <h3>Received Messages:</h3>
+    <div id="message-list"></div>
+  </div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
-    import { getDatabase, ref, onChildAdded } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-database.js";
+    import { getDatabase, ref, onChildAdded, push } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyBTmeDxIUhua52KDAoag23q9MuNEOQXYQg",
@@ -26,21 +50,97 @@
     const db = getDatabase(app);
     const messagesRef = ref(db, 'messages');
 
-    const existing = new Set();
+    const audio = document.getElementById('notification-sound');
+    const statusEl = document.getElementById('status');
+    const messageListEl = document.getElementById('message-list');
+    const sendStatusEl = document.getElementById('send-status');
+    const playButton = document.getElementById('play-button');
+    const soundTestStatus = document.getElementById('sound-test-status');
+    const enableAudioBtn = document.getElementById('enable-audio');
 
+    let audioEnabled = false;
+
+    // Try to auto-enable from localStorage
+    const wasEnabled = localStorage.getItem('audioEnabled') === 'true';
+
+    if (wasEnabled) {
+      // Try to enable audio automatically (browser might still block)
+      audio.play()
+        .then(() => {
+          audio.pause();
+          audio.currentTime = 0;
+          audioEnabled = true;
+          statusEl.textContent = "Audio auto-enabled from previous session.";
+        })
+        .catch(() => {
+          statusEl.textContent = "Click 'Enable Notification Sound' to allow audio.";
+        });
+    } else {
+      statusEl.textContent = "Click 'Enable Notification Sound' to allow audio.";
+    }
+
+    // User explicitly enables audio
+    enableAudioBtn.addEventListener('click', () => {
+      audio.play()
+        .then(() => {
+          audio.pause();
+          audio.currentTime = 0;
+          audioEnabled = true;
+          localStorage.setItem('audioEnabled', 'true');
+          statusEl.textContent = "Audio enabled - ready to receive messages";
+        })
+        .catch(err => {
+          statusEl.textContent = "Failed to enable audio: " + err.message;
+        });
+    });
+
+    // Manual sound test
+    playButton.addEventListener('click', () => {
+      soundTestStatus.textContent = "Playing sound...";
+      audio.play()
+        .then(() => {
+          soundTestStatus.textContent = "Sound played successfully!";
+          setTimeout(() => soundTestStatus.textContent = "", 2000);
+        })
+        .catch(err => {
+          soundTestStatus.textContent = "Error playing sound: " + err.message;
+        });
+    });
+
+    // Listen for new messages
     onChildAdded(messagesRef, (snapshot) => {
-      if (!existing.has(snapshot.key)) {
-        existing.add(snapshot.key);
-        document.getElementById('notification-sound').play().catch(err => {
-          console.log('Click to enable sound:', err);
+      const message = snapshot.val();
+      const messageEl = document.createElement('div');
+      messageEl.textContent = JSON.stringify(message);
+      messageListEl.prepend(messageEl);
+
+      // Play sound if enabled
+      if (audioEnabled) {
+        audio.play().catch(err => {
+          console.warn("Audio play failed on message receive:", err);
         });
       }
     });
 
-    // Required to unlock audio in some browsers
-    document.body.addEventListener('click', () => {
-      document.getElementById('notification-sound').play().catch(() => {});
-    }, { once: true });
+    // Send a message
+    document.getElementById('send-button').addEventListener('click', async () => {
+      const message = document.getElementById('message-input').value.trim();
+      if (!message) {
+        sendStatusEl.textContent = "Please enter a message";
+        return;
+      }
+
+      try {
+        sendStatusEl.textContent = "Sending...";
+        await push(messagesRef, {
+          text: message,
+          timestamp: Date.now()
+        });
+        sendStatusEl.textContent = "Message sent!";
+      } catch (error) {
+        sendStatusEl.textContent = "Error: " + error.message;
+      }
+    });
   </script>
 </body>
 </html>
